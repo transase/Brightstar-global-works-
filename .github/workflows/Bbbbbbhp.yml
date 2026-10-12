@@ -1,0 +1,52 @@
+name: Test and build cPanel package
+
+# Free cloud build: no PHP or Node needed on your own computer.
+# Push this project to a GitHub repository (Actions tab -> run, or just push). Download the zip from "Artifacts".
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, zip, gd, pdo_mysql, pdo_sqlite, sqlite3, bcmath, intl, fileinfo
+          tools: composer:v2
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Create a Laravel app with the overlay
+        run: bash scripts/prepare.sh "$RUNNER_TEMP/app"
+      - name: Run the test-suite
+        working-directory: ${{ runner.temp }}/app
+        run: |
+          cp .env.example .env && php artisan key:generate
+          php artisan test 2>&1 | tee test-output.txt
+      - name: Keep the test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: test-output, path: '${{ runner.temp }}/app/test-output.txt' }
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, zip, gd, pdo_mysql, bcmath, intl, fileinfo
+          tools: composer:v2
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Build the cPanel zip
+        run: bash scripts/build-cpanel-package.sh "$RUNNER_TEMP/out" | tee "$RUNNER_TEMP/build.log"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brightstar-cpanel
+          path: |
+            ${{ runner.temp }}/out/brightstar-cpanel.zip
+            ${{ runner.temp }}/build.log
