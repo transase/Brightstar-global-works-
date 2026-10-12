@@ -1,0 +1,9 @@
+# Safety net: if a domain's document root points at the PROJECT folder instead of /public,
+# route everything into /public and never serve internal files. (Ignored when the document root is /public.)
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^(\.env|\.git|composer\.(json|lock)|artisan|package(-lock)?\.json|vite\.config\.js|phpunit\.xml)$ - [F,L]
+RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests|vendor|scripts)(/|$) - [F,L]
+RewriteCond %{REQUEST_URI} !^/public/
+RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
